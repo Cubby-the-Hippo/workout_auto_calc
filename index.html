@@ -82,9 +82,8 @@
     'side-plank': TYPE.ISO,
     'two-point-start-accels': TYPE.PLYO,
     'three-t-cod-drill': TYPE.PLYO,
-    'partner-cod-race': TYPE.PLYO,
-    'hang-clean': TYPE.MAIN,
-    'unloaded-trap-bar-jumps': TYPE.PLYO
+    'continuous-single-leg-forward-bounds': TYPE.PLYO,
+    'hang-clean': TYPE.MAIN
   };
 
   const PHASE = {
@@ -135,10 +134,46 @@
   function hasSeconds(b) { return b.seconds != null && !Number.isNaN(b.seconds); }
 
   function hangCleanRx(week) {
-    if (week <= 2) return { sets: 3, reps: 5 };
-    if (week <= 4) return { sets: 4, reps: 3 };
-    if (week === 5) return { sets: 3, reps: 2 };
+    if (week === 1) return { sets: 3, reps: 5 };
+    if (week === 2) return { sets: 4, reps: 5 };
+    if (week === 3) return { sets: 5, reps: 5 };
+    if (week === 4) return { sets: 6, reps: 5 };
+    if (week === 5) return { sets: 4, reps: 4 };
     return { sets: 2, reps: 3 };
+  }
+
+  function singleLegBoundsRx(week) {
+    if (week >= 4 && week <= 5) return { sets: 2, distance: '10-15m' };
+    return { sets: 1, distance: '10-15m' };
+  }
+
+  function hangCleanTarget(week, day) {
+    const b = w1(day, 'hang-clean');
+    if (!hasLbsReps(b)) return null;
+    const sr = hangCleanRx(week);
+
+    if (week === 6) {
+      return {
+        text: `${round5(b.lbs * 0.8)} lbs × ${sr.reps} reps`,
+        sub: `${sr.sets} sets · Deload · 50–60% max`
+      };
+    }
+
+    const incMap = { 2: 5, 3: 10, 4: 10, 5: 20 };
+    const inc = incMap[week];
+    if (!inc) return null;
+
+    const subLabels = {
+      2: `${sr.sets} sets · 50–60% max`,
+      3: `${sr.sets} sets · Volume step up`,
+      4: `${sr.sets} sets · Peak Volume`,
+      5: `${sr.sets} sets · Weight Peak (+20 lbs over Week 1)`
+    };
+
+    return {
+      text: `${round5(b.lbs + inc)} lbs × ${sr.reps} reps`,
+      sub: subLabels[week]
+    };
   }
 
   function mainLiftRx(week) {
@@ -167,8 +202,7 @@
     const b = w1(day, exerciseId);
     if (!hasLbsReps(b)) return null;
 
-    const hc = exerciseId === 'hang-clean';
-    const sr = hc ? hangCleanRx(week) : mainLiftRx(week);
+    const sr = mainLiftRx(week);
 
     if (week === 6) {
       return {
@@ -181,8 +215,7 @@
     const inc = incMap[week];
     if (!inc) return null;
 
-    const reps = hc ? sr.reps : 8;
-    const sets = hc ? sr.sets : (week === 2 ? 3 : 4);
+    const sets = week === 2 ? 3 : 4;
     const labels = {
       2: `${sets} sets`,
       3: `${sets} sets · Volume step up`,
@@ -191,7 +224,7 @@
     };
 
     return {
-      text: `${round5(b.lbs + inc)} lbs × ${reps} reps`,
+      text: `${round5(b.lbs + inc)} lbs × 8 reps`,
       sub: labels[week]
     };
   }
@@ -223,6 +256,7 @@
   }
 
   function computeTarget(week, day, exerciseId) {
+    if (exerciseId === 'hang-clean') return hangCleanTarget(week, day);
     const type = EX_TYPE[exerciseId];
     if (type === TYPE.MAIN) return mainTarget(week, day, exerciseId);
     if (type === TYPE.WEIGHTED) return weightedTarget(week, day, exerciseId);
@@ -389,19 +423,12 @@
   function buildSunday(week) {
     const day = 'sunday';
     const hc = hangCleanRx(week);
+    const bounds = singleLegBoundsRx(week);
     const parts = [];
-    parts.push(exerciseCard('1', day, 'two-point-start-accels', '2 Point Start Accels', `${plyoSets(3, week)}×(20m)`, 'Full recovery | 2-3 min rest', week, null));
-    parts.push(exerciseCard('2', day, 'three-t-cod-drill', '3 T COD Drill', '2×(3 reps)', 'Game speed change of direction', week, null));
-    if (week !== 6) {
-      parts.push(exerciseCard('3', day, 'partner-cod-race', 'Partner COD Race', '2×(2-3 Each)', 'Reactive intent', week, null));
-    }
-    parts.push(superset(day, week, [
-      {
-        num: '4a', id: 'hang-clean', title: 'Hang Clean', rx: `${hc.sets}×${hc.reps} reps`, meta: null,
-        note: week === 5 ? 'Keep it fast, crisp, and explosive' : week === 6 ? 'Light technical work' : null
-      },
-      { num: '4b', id: 'unloaded-trap-bar-jumps', title: 'Unloaded Trap Bar Jumps', rx: `${plyoSets(3, week)}×(3-5 jumps)`, meta: 'Contrast superset | Max velocity' }
-    ]));
+    parts.push(exerciseCard('1', day, 'two-point-start-accels', '2 Point Start Accels', '1-3×(15-20m)', 'Full recovery | 2-3 min rest', week, null));
+    parts.push(exerciseCard('2', day, 'three-t-cod-drill', '3 T COD Drill', '1×(4 reps total)', 'Game speed change of direction', week, null));
+    parts.push(exerciseCard('3', day, 'continuous-single-leg-forward-bounds', 'Continuous Single-Leg Forward Bounds', `${bounds.sets}×(${bounds.distance})`, 'Controlled rhythm · stick each landing', week, week >= 4 && week <= 5 ? 'Overreach peak' : null));
+    parts.push(exerciseCard('4', day, 'hang-clean', 'Hang Clean', `${hc.sets}×${hc.reps} reps`, 'High-Set Volume Engine · 50–60% max', week, week === 5 ? 'Weight Peak — stay fast & crisp' : week === 4 ? 'Peak Volume' : week === 6 ? 'Light technical work' : null));
     return dayCard('Sunday', 'Speed / Power / Alactic', parts.join(''));
   }
 
