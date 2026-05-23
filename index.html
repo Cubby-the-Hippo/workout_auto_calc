@@ -57,7 +57,7 @@
   const STORAGE_ACTIVE_WEEK = 'gppActiveWeek';
   const LOG_PREFIX = 'gpp-log';
 
-  const TYPE = { MAIN: 'main', WEIGHTED: 'weighted', ISO: 'isometric', PLYO: 'plyo' };
+  const TYPE = { MAIN: 'main', WEIGHTED: 'weighted', ISO: 'isometric', PLYO: 'plyo', FLOOR_VOL: 'floor_vol', FLOOR_ISO: 'floor_iso' };
 
   const EX_TYPE = {
     'broad-jump': TYPE.PLYO,
@@ -66,6 +66,7 @@
     'barbell-hip-thrust': TYPE.MAIN,
     'copenhagen-iso': TYPE.ISO,
     'pallof-press-iso': TYPE.ISO,
+    'prone-supermans': TYPE.FLOOR_VOL,
     'plyo-plate-push-ups': TYPE.PLYO,
     'weighted-chin-ups': TYPE.WEIGHTED,
     'incline-chest-press': TYPE.WEIGHTED,
@@ -80,6 +81,7 @@
     'reverse-uphill-walks': TYPE.PLYO,
     'abductor-squeeze': TYPE.ISO,
     'side-plank': TYPE.ISO,
+    'prone-cobra': TYPE.FLOOR_ISO,
     'two-point-start-accels': TYPE.PLYO,
     'three-t-cod-drill': TYPE.PLYO,
     'continuous-single-leg-forward-bounds': TYPE.PLYO,
@@ -198,6 +200,34 @@
     return week === 6 ? 2 : base;
   }
 
+  function proneSupermansRx(week) {
+    if (week <= 2) return { sets: 2, reps: 15 };
+    if (week <= 4) return { sets: 3, reps: 15 };
+    if (week === 5) return { sets: 3, reps: 20 };
+    return { sets: 1, reps: 12 };
+  }
+
+  function proneCobraRx(week) {
+    if (week <= 2) return { sets: 2, seconds: 30 };
+    if (week <= 4) return { sets: 3, seconds: 30 };
+    if (week === 5) return { sets: 3, seconds: 45 };
+    return { sets: 1, seconds: 20 };
+  }
+
+  function floorVolumeTarget(week, exerciseId) {
+    const rx = exerciseId === 'prone-supermans' ? proneSupermansRx(week) : null;
+    if (!rx) return null;
+    const sub = week === 5 ? 'Peak volume' : week === 6 ? 'Deload' : `${rx.sets} sets`;
+    return { text: `${rx.sets} sets × ${rx.reps} reps`, sub };
+  }
+
+  function floorIsoHoldTarget(week, exerciseId) {
+    const rx = exerciseId === 'prone-cobra' ? proneCobraRx(week) : null;
+    if (!rx) return null;
+    const sub = week === 5 ? 'Peak hold' : week === 6 ? 'Deload' : `${rx.sets} sets`;
+    return { text: `${rx.sets} sets × ${rx.seconds} seconds`, sub };
+  }
+
   function mainTarget(week, day, exerciseId) {
     const b = w1(day, exerciseId);
     if (!hasLbsReps(b)) return null;
@@ -308,9 +338,32 @@
       </div>`;
   }
 
+  function week1RepsOnlyInput(day, exerciseId) {
+    if (activeWeek !== 1) return '';
+    const b = readLog(1, day, exerciseId);
+    const cls = 'input-indigo w-full max-w-[9rem] rounded-xl border bg-slate-950 px-3 py-3 text-base font-semibold text-white outline-none';
+    return `
+      <div class="mt-3 border-t border-slate-700/50 pt-3">
+        <span class="mb-2 block text-[10px] font-bold uppercase tracking-widest text-indigo-400">Log Week 1 reps</span>
+        <input type="text" inputmode="numeric" placeholder="reps" aria-label="Reps" autocomplete="off"
+          class="${cls}" data-log-week="1" data-log-day="${day}" data-log-exercise="${exerciseId}" data-log-field="reps"
+          value="${esc(b.reps ?? '')}" />
+      </div>`;
+  }
+
   function actionZone(week, day, exerciseId) {
     const type = EX_TYPE[exerciseId];
     if (type === TYPE.PLYO) return '';
+    if (type === TYPE.FLOOR_VOL) {
+      if (week === 1) return week1RepsOnlyInput(day, exerciseId);
+      const t = floorVolumeTarget(week, exerciseId);
+      return t ? targetBadge(t) : '';
+    }
+    if (type === TYPE.FLOOR_ISO) {
+      if (week === 1) return week1SecondsInput(day, exerciseId);
+      const t = floorIsoHoldTarget(week, exerciseId);
+      return t ? targetBadge(t) : '';
+    }
     if (week === 1) {
       if (type === TYPE.MAIN || type === TYPE.WEIGHTED) return week1LbsRepsInputs(day, exerciseId);
       if (type === TYPE.ISO) return week1SecondsInput(day, exerciseId);
@@ -383,6 +436,8 @@
       { num: '5a', id: 'copenhagen-iso', title: 'Copenhagen Iso', rx: rxIso(week, '20-30 sec'), meta: '60s rest' },
       { num: '5b', id: 'pallof-press-iso', title: 'Pallof Press Iso', rx: rxIso(week, '20-30 sec'), meta: 'Superset with Copenhagen' }
     ]));
+    const ps = proneSupermansRx(week);
+    parts.push(exerciseCard('6', day, 'prone-supermans', 'Prone Supermans', `${ps.sets}×${ps.reps} reps`, 'Pure lower back and glute stamina flush.', week, week === 5 ? 'Peak volume' : week === 6 ? 'Deload' : null));
     return dayCard('Tuesday', 'Lower / Core', parts.join(''));
   }
 
@@ -417,6 +472,8 @@
       { num: '6a', id: 'abductor-squeeze', title: 'Abductor Squeeze', rx: rxIso(week, '20-30 sec'), meta: 'Groin bulletproofing' },
       { num: '6b', id: 'side-plank', title: 'Side Plank', rx: rxIso(week, '20-30 sec'), meta: 'Core structural balance' }
     ]));
+    const pc = proneCobraRx(week);
+    parts.push(exerciseCard('6', day, 'prone-cobra', 'Prone Cobra', `${pc.sets}×${pc.seconds} sec`, 'Hold top position with thumbs up to target postural muscles.', week, week === 5 ? 'Peak hold' : week === 6 ? 'Deload' : null));
     return dayCard('Friday', 'Lower / Posterior', parts.join(''));
   }
 
